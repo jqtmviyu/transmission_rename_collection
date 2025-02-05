@@ -16,9 +16,9 @@ import (
 
 // 定义正则表达式
 var (
-	// 匹配种子名称格式的正则表达式
-	torrentNameRegex = regexp.MustCompile(`^(.+) - S(\d+)$`)
-	episodeRegex     = regexp.MustCompile(`【(\d+(?:\.5)?)】|\[(\d+(?:\.5)?)]|第(\d+(?:\.5)?)集| (\d+(?:\.5)?)|E(\d+(?:\.5)?)`)
+	// 匹配路径中 "Season X/" 的正则表达式
+	seasonPathRegex = regexp.MustCompile(`Season (\d+)`)
+	episodeRegex    = regexp.MustCompile(`\[(\d+(?:\.5)?)]|【(\d+(?:\.5)?)】|第(\d+(?:\.5)?)集|[ _](\d+(?:\.5)?)[ _]|E(\d+(?:\.5)?)`)
 )
 
 type Config struct {
@@ -78,23 +78,13 @@ func main() {
 		}
 
 		if !hasCollectionLabel {
-			log.Printf("跳过未标记 collection 的种子: %s", *torrent.Name)
+			// log.Printf("跳过未标记 collection 的种子: %s", *torrent.Name)
 			continue
 		}
-
-		// 检查种子名称是否符合格式
-		match := torrentNameRegex.FindStringSubmatch(*torrent.Name)
-		if match == nil {
-			log.Printf("种子名称格式不符合要求: %s", *torrent.Name)
-			continue
-		}
-
-		seriesName := match[1]
-		seasonNum := match[2]
 
 		// 获取种子的详细信息，包括文件列表
 		torrentInfo, err := client.TorrentGet(context.Background(),
-			[]string{"id", "name", "files", "downloadDir"},
+			[]string{"id", "name", "files", "downloadDir", "wanted", "priorities"},
 			[]int64{*torrent.ID})
 		if err != nil {
 			log.Printf("获取种子详细信息失败: %v", err)
@@ -112,8 +102,21 @@ func main() {
 		allFilesRenamed := true
 
 		// 处理种子中的每个文件
-		for _, file := range currentTorrent.Files {
+		for i, file := range currentTorrent.Files {
+			// 检查文件是否被选择下载
+			if !currentTorrent.Wanted[i] {
+				// log.Printf("跳过未选择下载的文件: %s", file.Name)
+				continue
+			}
+
 			log.Printf("处理文件: %s", file.Name)
+
+			// 为每个文件提取季度信息
+			seasonNum := "01" // 默认为第一季
+			if seasonMatch := seasonPathRegex.FindStringSubmatch(file.Name); seasonMatch != nil {
+				seasonNum = fmt.Sprintf("%02s", seasonMatch[1])
+				// log.Printf("从文件路径中提取到季度: %s", seasonNum)
+			}
 
 			// 提取集数
 			episodeMatch := episodeRegex.FindStringSubmatch(file.Name)
@@ -131,37 +134,44 @@ func main() {
 				}
 			}
 
+			// log.Printf("从文件名 %s 中提取到集数: %s", file.Name, episodeNum)
+
 			// 获取文件扩展名
 			ext := filepath.Ext(file.Name)
 
-			// 构建新的文件名
+			// 在处理文件循环中修改重命名逻辑
+			oldPath := file.Name // 使用原始文件名，不做任何转换
+
+			// 构建新文件名时保持相同的目录结构
 			newBaseName := fmt.Sprintf("%s S%sE%s%s",
-				seriesName,
-				fmt.Sprintf("%02s", seasonNum),
+				*torrent.Name,
+				seasonNum,
 				fmt.Sprintf("%02s", episodeNum),
 				ext,
 			)
 
-			// 获取当前文件的路径和新的名称
-			oldPath := filepath.ToSlash(file.Name) // 当前文件的相对路径
-			newName := newBaseName                 // 只需要新的文件名，不是完整路径
+			// 确保使用正斜杠
+			oldPath = strings.ReplaceAll(oldPath, "\\", "/")
 
+			// 检查文件名是否相同
 			oldFileName := filepath.Base(oldPath)
-			if oldFileName == newName {
+			if oldFileName == newBaseName {
 				log.Printf("文件名相同,跳过重命名: %s", oldPath)
 				continue
 			}
-			log.Printf("重命名文件: %s -> %s", oldPath, newName)
 
-			// 使用正确的参数调用重命名方法
-			err = client.TorrentRenamePath(context.Background(), *currentTorrent.ID, oldPath, newName)
+			log.Printf("重命名文件: %s -> %s", oldFileName, newBaseName)
+
+			// 只传入文件名进行重命名
+			// 这里前面传递的是路径，后面传递的是文件名
+			err = client.TorrentRenamePath(context.Background(), *currentTorrent.ID, oldPath, newBaseName)
 			if err != nil {
 				log.Printf("重命名文件失败: %v", err)
 				allFilesRenamed = false
-				break
+				continue
 			}
 
-			log.Printf("成功重命名文件: %s", newName)
+			log.Printf("成功重命名文件: %s", newBaseName)
 		}
 
 		// 只有当所有文件都成功重命名后才更新标签
