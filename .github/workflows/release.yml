@@ -33,7 +33,7 @@ jobs:
             # 使用时间戳作为版本号 (格式: dev-YYYYMMDD-HHMMSS)
             VERSION="dev-$(date +'%Y%m%d-%H%M%S')"
           fi
-          
+
           gh release create $VERSION \
             --title "Release $VERSION" \
             --generate-notes \
