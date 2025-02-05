@@ -69,12 +69,16 @@ case "$1" in
 "darwin-amd64")
   build darwin amd64
   ;;
+"darwin-arm64")
+  build darwin arm64
+  ;;
 "all")
   clean_all
   build linux arm64
   build linux amd64
   build windows amd64
   build darwin amd64
+  build darwin arm64
   ;;
 "clean")
   clean_all
@@ -82,9 +86,10 @@ case "$1" in
   exit 0
   ;;
 *)
-  echo "用法: $0 {linux-arm64|linux-amd64|windows-amd64|darwin-amd64|all|clean}"
+  echo "用法: $0 {linux-arm64|linux-amd64|windows-amd64|darwin-amd64|darwin-arm64|all|clean}"
   echo "示例:"
   echo "  $0 linux-arm64    # 仅编译 Linux ARM64 版本"
+  echo "  $0 darwin-arm64   # 仅编译 macOS ARM64 版本"
   echo "  $0 all            # 编译所有平台版本"
   echo "  $0 clean          # 清理所有编译文件"
   exit 1
