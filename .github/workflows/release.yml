@@ -34,11 +34,21 @@ jobs:
             VERSION="dev-$(date +'%Y%m%d-%H%M%S')"
           fi
 
-          gh release create $VERSION \
-            --title "Release $VERSION" \
-            --generate-notes \
-            --prerelease \
-            build/rename_collection_linux_amd64 \
-            build/rename_collection_linux_arm64 \
-            build/rename_collection_windows_amd64.exe \
-            build/rename_collection_darwin_amd64
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            gh release create $VERSION \
+              --title "Release $VERSION" \
+              --generate-notes \
+              build/rename_collection_linux_amd64 \
+              build/rename_collection_linux_arm64 \
+              build/rename_collection_windows_amd64.exe \
+              build/rename_collection_darwin_amd64
+          else
+            gh release create $VERSION \
+              --title "Release $VERSION" \
+              --generate-notes \
+              --prerelease \
+              build/rename_collection_linux_amd64 \
+              build/rename_collection_linux_arm64 \
+              build/rename_collection_windows_amd64.exe \
+              build/rename_collection_darwin_amd64
+          fi
