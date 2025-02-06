@@ -13,42 +13,23 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@main
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: 'stable'
 
-      - name: 编译所有平台版本
-        run: bash scripts/build.sh all
+      - name: 打印go版本
+        run: go version
 
       - name: 创建 Release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: 'latest'
+          args: 'release --clean'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            VERSION=${{ github.ref_name }}
-          else
-            # 使用时间戳作为版本号 (格式: dev-YYYYMMDD-HHMMSS)
-            VERSION="dev-$(date +'%Y%m%d-%H%M%S')"
-          fi
-
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            gh release create $VERSION \
-              --title "Release $VERSION" \
-              --generate-notes \
-              build/rename_collection_linux_amd64 \
-              build/rename_collection_linux_arm64 \
-              build/rename_collection_windows_amd64.exe \
-              build/rename_collection_darwin_amd64
-          else
-            gh release create $VERSION \
-              --title "Release $VERSION" \
-              --generate-notes \
-              --prerelease \
-              build/rename_collection_linux_amd64 \
-              build/rename_collection_linux_arm64 \
-              build/rename_collection_windows_amd64.exe \
-              build/rename_collection_darwin_amd64
-          fi
