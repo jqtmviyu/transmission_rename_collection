@@ -28,8 +28,15 @@ type Config struct {
 }
 
 func main() {
-	// 读取配置文件
-	configFile, err := os.ReadFile("config.json")
+	// 获取可执行文件的路径
+	executablePath, err := os.Executable()
+	if err != nil {
+		log.Fatal("获取可执行文件路径失败:", err)
+	}
+
+	// 构建配置文件的完整路径
+	configFilePath := filepath.Join(filepath.Dir(executablePath), "config.json")
+	configFile, err := os.ReadFile(configFilePath)
 	if err != nil {
 		log.Fatal("读取配置文件失败:", err)
 	}
