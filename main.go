@@ -34,8 +34,17 @@ func main() {
 		log.Fatal("获取可执行文件路径失败:", err)
 	}
 
-	// 构建配置文件的完整路径
+	// 尝试从二进制文件所在的目录读取配置文件
 	configFilePath := filepath.Join(filepath.Dir(executablePath), "config.json")
+
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		// 如果二进制目录中没有配置文件，则尝试从当前工作目录读取
+		log.Printf("二进制目录中的配置文件不存在，尝试从当前工作目录读取")
+		configFilePath = "config.json"
+	} else if err != nil {
+		log.Fatal("检查配置文件时发生错误:", err)
+	}
+
 	configFile, err := os.ReadFile(configFilePath)
 	if err != nil {
 		log.Fatal("读取配置文件失败:", err)
@@ -121,6 +130,17 @@ func main() {
 
 		currentTorrent := torrentInfo[0]
 
+		bgmName := *torrent.Name // 动漫名称
+		seasonNum := "01"        // 默认为第一季
+
+		// 处理手动指定季数
+		if seasonMatch := seasonPathRegex.FindStringSubmatch(bgmName); seasonMatch != nil {
+			seasonNum = fmt.Sprintf("%02s", seasonMatch[1])
+			bgmName = strings.Replace(bgmName, seasonMatch[0], "", 1)
+			// 再去掉前后空格
+			bgmName = strings.TrimSpace(bgmName)
+		}
+
 		// 添加一个标志来跟踪是否所有文件都成功重命名
 		allFilesRenamed := true
 
@@ -145,7 +165,6 @@ func main() {
 			}
 
 			// 为每个文件提取季度信息
-			seasonNum := "01" // 默认为第一季
 			if seasonMatch := seasonPathRegex.FindStringSubmatch(oldPath); seasonMatch != nil {
 				seasonNum = fmt.Sprintf("%02s", seasonMatch[1])
 				// log.Printf("从文件路径中提取到季度: %s", seasonNum)
@@ -174,7 +193,7 @@ func main() {
 					continue
 				}
 
-				// 找到第一个非空的匹配组
+				// 找到第一个非空的捕获组
 				for i := 1; i < len(episodeMatch); i++ {
 					if episodeMatch[i] != "" {
 						episodeNum = episodeMatch[i]
@@ -194,8 +213,9 @@ func main() {
 					lang = langMatch[0]
 				}
 			}
+
 			newBaseName := fmt.Sprintf("%s S%sE%s%s%s",
-				*torrent.Name,
+				bgmName,
 				seasonNum,
 				fmt.Sprintf("%02s", episodeNum),
 				lang,
