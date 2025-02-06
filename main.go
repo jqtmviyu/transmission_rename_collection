@@ -14,18 +14,13 @@ import (
 	"github.com/hekmon/transmissionrpc/v3"
 )
 
-// 定义正则表达式
-var (
-	// 匹配路径中 "Season X/" 的正则表达式
-	seasonPathRegex = regexp.MustCompile(`Season (\d+)`)
-	episodeRegex    = regexp.MustCompile(`\[(\d+(?:\.5)?)]|【(\d+(?:\.5)?)】|第(\d+(?:\.5)?)集|[ _](\d+(?:\.5)?)[ _]|E(\d+(?:\.5)?)`)
-)
-
 type Config struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	Host            string `json:"host"`
+	Port            int    `json:"port"`
+	SeasonPathRegex string `json:"seasonPathRegex"`
+	EpisodeRegex    string `json:"episodeRegex"`
 }
 
 func main() {
@@ -38,6 +33,19 @@ func main() {
 	var config Config
 	if err := json.Unmarshal(configFile, &config); err != nil {
 		log.Fatal("解析配置文件失败:", err)
+	}
+
+	// 尝试编译正则表达式
+	seasonPathRegex := regexp.MustCompile(config.SeasonPathRegex)
+	episodeRegex := regexp.MustCompile(config.EpisodeRegex)
+
+	// 检查正则表达式是否有效
+	if seasonPathRegex == nil {
+		log.Fatal("季节路径正则表达式无效")
+	}
+
+	if episodeRegex == nil {
+		log.Fatal("集数正则表达式无效")
 	}
 
 	// 构建 Transmission RPC URL
@@ -108,39 +116,42 @@ func main() {
 				// log.Printf("跳过未选择下载的文件: %s", file.Name)
 				continue
 			}
-
-			log.Printf("处理文件: %s", file.Name)
+			oldPath := file.Name
+			oldBaseName := filepath.Base(oldPath)
+			log.Printf("处理文件: %s", oldPath)
 
 			// 为每个文件提取季度信息
 			seasonNum := "01" // 默认为第一季
-			if seasonMatch := seasonPathRegex.FindStringSubmatch(file.Name); seasonMatch != nil {
+			if seasonMatch := seasonPathRegex.FindStringSubmatch(oldPath); seasonMatch != nil {
 				seasonNum = fmt.Sprintf("%02s", seasonMatch[1])
 				// log.Printf("从文件路径中提取到季度: %s", seasonNum)
 			}
 
-			// 提取集数
-			episodeMatch := episodeRegex.FindStringSubmatch(file.Name)
-			if len(episodeMatch) == 0 {
-				log.Printf("无法从文件名提取集数: %s", file.Name)
-				continue
-			}
-
-			// 找到第一个非空的匹配组
+			// 检查文件名是否包含 SxxExx 格式
 			var episodeNum string
-			for i := 1; i < len(episodeMatch); i++ {
-				if episodeMatch[i] != "" {
-					episodeNum = episodeMatch[i]
-					break
+			specialEpisodeMatch := regexp.MustCompile(`S\d+E(\d+)`).FindStringSubmatch(oldBaseName)
+			if specialEpisodeMatch != nil {
+				episodeNum = specialEpisodeMatch[1] // 使用捕获的集数
+			} else {
+				episodeMatch := episodeRegex.FindStringSubmatch(oldBaseName)
+				if len(episodeMatch) == 0 {
+					log.Printf("无法从文件名提取集数: %s", oldBaseName)
+					continue
+				}
+
+				// 找到第一个非空的匹配组
+				for i := 1; i < len(episodeMatch); i++ {
+					if episodeMatch[i] != "" {
+						episodeNum = episodeMatch[i]
+						break
+					}
 				}
 			}
 
-			// log.Printf("从文件名 %s 中提取到集数: %s", file.Name, episodeNum)
+			// log.Printf("从文件名 %s 中提取到集数: %s", oldBaseName, episodeNum)
 
 			// 获取文件扩展名
-			ext := filepath.Ext(file.Name)
-
-			// 在处理文件循环中修改重命名逻辑
-			oldPath := file.Name // 使用原始文件名，不做任何转换
+			ext := filepath.Ext(oldPath)
 
 			// 构建新文件名时保持相同的目录结构
 			newBaseName := fmt.Sprintf("%s S%sE%s%s",
@@ -154,13 +165,12 @@ func main() {
 			oldPath = strings.ReplaceAll(oldPath, "\\", "/")
 
 			// 检查文件名是否相同
-			oldFileName := filepath.Base(oldPath)
-			if oldFileName == newBaseName {
-				log.Printf("文件名相同,跳过重命名: %s", oldPath)
+			if oldBaseName == newBaseName {
+				log.Printf("文件名相同,跳过重命名")
 				continue
 			}
 
-			log.Printf("重命名文件: %s -> %s", oldFileName, newBaseName)
+			log.Printf("重命名文件: %s -> %s", oldBaseName, newBaseName)
 
 			// 只传入文件名进行重命名
 			// 这里前面传递的是路径，后面传递的是文件名
@@ -171,7 +181,7 @@ func main() {
 				continue
 			}
 
-			log.Printf("成功重命名文件: %s", newBaseName)
+			log.Printf("重命名文件成功")
 		}
 
 		// 只有当所有文件都成功重命名后才更新标签
