@@ -41,7 +41,7 @@ func main() {
 
 	// 检查正则表达式是否有效
 	if seasonPathRegex == nil {
-		log.Fatal("季节路径正则表达式无效")
+		log.Fatal("季度路径正则表达式无效")
 	}
 
 	if episodeRegex == nil {
