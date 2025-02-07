@@ -21,7 +21,7 @@ type Config struct {
 	Host            string   `json:"host"`
 	Port            int      `json:"port"`
 	SeasonPathRegex string   `json:"seasonPathRegex"`
-	EpisodeRegex    string   `json:"episodeRegex"`
+	EpisodeRegex    []string `json:"episodeRegex"`
 	Ext             []string `json:"ext"`
 	ExtSubs         []string `json:"extSubs"`
 	LangRegex       string   `json:"langRegex"`
@@ -57,14 +57,13 @@ func main() {
 
 	// 尝试编译正则表达式
 	seasonPathRegex := regexp.MustCompile(config.SeasonPathRegex)
-	episodeRegex := regexp.MustCompile(config.EpisodeRegex)
 	langRegex := regexp.MustCompile(config.LangRegex)
 	// 检查正则表达式是否有效
 	if seasonPathRegex == nil {
 		log.Fatal("季度路径正则表达式无效")
 	}
 
-	if episodeRegex == nil {
+	if len(config.EpisodeRegex) == 0 {
 		log.Fatal("集数正则表达式无效")
 	}
 
@@ -183,23 +182,16 @@ func main() {
 
 			// 检查文件名是否包含 SxxExx 格式
 			var episodeNum string
-			specialEpisodeMatch := regexp.MustCompile(`S\d+E(\d+)`).FindStringSubmatch(oldBaseName)
-			if specialEpisodeMatch != nil {
-				episodeNum = specialEpisodeMatch[1] // 使用捕获的集数
-			} else {
-				episodeMatch := episodeRegex.FindStringSubmatch(oldBaseName)
-				if len(episodeMatch) == 0 {
-					log.Printf("无法从文件名提取集数: %s", oldBaseName)
-					continue
+			for _, regex := range config.EpisodeRegex { // 遍历正则表达式数组
+				episodeMatch := regexp.MustCompile(regex).FindStringSubmatch(oldBaseName)
+				if len(episodeMatch) > 0 {
+					episodeNum = episodeMatch[1] // 使用捕获的集数
+					break                        // 找到后退出循环
 				}
-
-				// 找到第一个非空的捕获组
-				for i := 1; i < len(episodeMatch); i++ {
-					if episodeMatch[i] != "" {
-						episodeNum = episodeMatch[i]
-						break
-					}
-				}
+			}
+			if episodeNum == "" {
+				log.Printf("无法从文件名提取集数: %s", oldBaseName)
+				continue
 			}
 
 			// log.Printf("从文件名 %s 中提取到集数: %s", oldBaseName, episodeNum)
