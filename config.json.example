@@ -3,6 +3,7 @@
     "password": "123456",
     "host": "127.0.0.1",
     "port": 9091,
+    "seasonPathRegex": "Season (\\d+)",
     "episodeRegex": [
       "\\[(\\d+(?:\\.5)?)\\]",
       "【(\\d+(?:\\.5)?)】",
