@@ -180,7 +180,7 @@ func main() {
 				continue
 			}
 
-			// 检查文件名是否包含 SxxExx 格式
+			// 从文件名中提取集数
 			var episodeNum string
 			for _, regex := range config.EpisodeRegex { // 遍历正则表达式数组
 				episodeMatch := regexp.MustCompile(regex).FindStringSubmatch(oldBaseName)
