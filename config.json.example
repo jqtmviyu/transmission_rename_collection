@@ -13,5 +13,5 @@
     ],
     "ext": [".mp4", ".mkv", ".avi", ".rmvb", ".flv", ".wmv", ".mov"],
     "extSubs": [".srt", ".ass", ".ssa", ".vtt", ".smi", ".sup", ".sub"],
-    "langRegex": "(?i)[\\._](?:\\w{2,3}|\\w{2,3}[-&]\\w{2,3}|big5)$"
+    "langRegex": "(?i)[\\._](?:\\w{2,4}|\\w{2,3}[-&]\\w{2,3}|big5)$"
 }
